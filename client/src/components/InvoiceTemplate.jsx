@@ -43,38 +43,31 @@ const InvoiceTemplate = forwardRef(({ invoice, dealer }, ref) => {
 
             {/* ===== HEADER with logos ===== */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                {/* LEFT: Bhoomi Logo + Text */}
+                {/* LEFT: Bhoomi Logo */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <img src="/assets/bhoomi-logo.png" alt="Bhoomi"
                         style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
-                    <div>
-                        <p style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: '#3d3530', letterSpacing: '0.5px' }}>Bhoomi Automobiles</p>
-                        <p style={{ fontSize: '10px', fontWeight: '500', margin: '2px 0 0', color: '#888', letterSpacing: '2px', textTransform: 'uppercase' }}>Drive Electric</p>
-                    </div>
                 </div>
 
-                {/* RIGHT: Dealer's registered logo */}
+                {/* RIGHT: Static DeepEscooty logo — always shown, never URL-based */}
                 <div style={{ width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {dealer?.dealerLogo ? (
-                        <img src={dealer.dealerLogo} alt="Dealer Logo"
-                            style={{ maxWidth: '90px', maxHeight: '90px', objectFit: 'contain', borderRadius: '8px' }} />
-                    ) : (
-                        <div style={{
-                            width: '70px', height: '70px', borderRadius: '14px',
-                            background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#fff', fontSize: '24px', fontWeight: '800'
-                        }}>
-                            {dealer?.showroomName?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'DS'}
-                        </div>
-                    )}
+                    <img
+                        src="/assets/7057686.jpg"
+                        alt="Deep E-Scooty And Toys"
+                        style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '8px' }}
+                        crossOrigin="anonymous"
+                    />
                 </div>
             </div>
 
-            {/* ===== TAX INVOICE HEADING ===== */}
+            {/* ===== SHOP TITLE + TAX INVOICE HEADING ===== */}
             <div style={{ textAlign: 'center', margin: '15px 0 20px', borderBottom: '2px solid #1a1a1a', paddingBottom: '15px' }}>
                 <h1 style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '2px', margin: 0, color: '#1a1a1a' }}>
-                    TAX INVOICE
+                    DEEP E-SCOOTY AND TOYS
                 </h1>
+                <p style={{ fontSize: '14px', fontWeight: '700', letterSpacing: '1px', margin: '0 0 4px', color: '#333', textTransform: 'uppercase' }}>
+                    TAX INVOICE
+                </p>
             </div>
 
             {/* ===== DEALER & INVOICE DETAILS ===== */}
@@ -236,14 +229,14 @@ const InvoiceTemplate = forwardRef(({ invoice, dealer }, ref) => {
                     </div>
                 </div>
 
-                {/* Right: Signature */}
+                {/* Right: Permanent static signature image */}
                 <div style={{ textAlign: 'center' }}>
-                    {dealer?.digitalSignature ? (
-                        <img src={dealer.digitalSignature} alt="Signature"
-                            style={{ width: '200px', height: '100px', objectFit: 'contain', marginBottom: '6px' }} />
-                    ) : (
-                        <div style={{ width: '160px', height: '60px', borderBottom: '1px solid #ccc', marginBottom: '6px' }} />
-                    )}
+                    <img
+                        src="/assets/signature.png"
+                        alt="Authorised Signature"
+                        crossOrigin="anonymous"
+                        style={{ width: '200px', height: '100px', objectFit: 'contain', marginBottom: '6px', display: 'block' }}
+                    />
                     <p style={{ fontSize: '12px', fontWeight: '600', color: '#444', margin: 0 }}>Authorised Signatory</p>
                 </div>
             </div>

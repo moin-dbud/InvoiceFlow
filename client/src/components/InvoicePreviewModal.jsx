@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
-import { X, Download, MessageCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, Download, Printer, Loader2, CheckCircle2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import InvoiceTemplate from './InvoiceTemplate';
@@ -13,7 +14,7 @@ const authHeader = () => ({ headers: { Authorization: `Bearer ${getToken()}` } }
 export default function InvoicePreviewModal({ invoice, onClose }) {
     const templateRef = useRef(null);
     const [downloading, setDownloading] = useState(false);
-    const [sendingWA, setSendingWA] = useState(false);
+    const [printing, setPrinting] = useState(false);
     const [dealer, setDealer] = useState(null);
     const [downloadDone, setDownloadDone] = useState(false);
 
@@ -22,8 +23,10 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
         const fetchDealer = async () => {
             try {
                 const { data } = await axios.get(`${API}/auth/me`, authHeader());
-                if (data.success) setDealer(data.user);
-            } catch { }
+                if (data.success) {
+                    setDealer(data.user);
+                }
+            } catch { /* silently ignore fetch errors */ }
         };
         fetchDealer();
     }, []);
@@ -35,9 +38,10 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
         const canvas = await html2canvas(el, {
             scale: 2,
             useCORS: true,
-            allowTaint: true,
+            allowTaint: false,
             backgroundColor: '#ffffff',
             logging: false,
+            imageTimeout: 15000,
         });
 
         const imgData = canvas.toDataURL('image/png');
@@ -72,36 +76,39 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
         }
     };
 
-    const handleWhatsApp = async () => {
-        setSendingWA(true);
+    const handlePrint = () => {
+        setPrinting(true);
         try {
-            const pdf = await generatePDF();
-            if (pdf) {
-                // Download the PDF first
-                pdf.save(`${invoice.invoiceNumber}.pdf`);
+            const el = templateRef.current;
+            if (!el) return;
 
-                // Then open WhatsApp with the customer's number
-                const phone = invoice.customerMobile.startsWith('+91')
-                    ? invoice.customerMobile.replace(/\D/g, '')
-                    : `91${invoice.customerMobile.replace(/\D/g, '')}`;
-
-                const message = encodeURIComponent(
-                    `Dear ${invoice.customerName},\n\n` +
-                    `Thank you for your purchase! Please find your invoice details below:\n\n` +
-                    `📄 Invoice No: ${invoice.invoiceNumber}\n` +
-                    `💰 Amount: ₹${invoice.grandTotal.toLocaleString('en-IN')}\n` +
-                    `📅 Date: ${new Date(invoice.createdAt).toLocaleDateString('en-IN')}\n` +
-                    `💳 Payment: ${invoice.paymentMode.charAt(0).toUpperCase() + invoice.paymentMode.slice(1)}\n\n` +
-                    `The invoice PDF has been downloaded. Please attach it to this chat.\n\n` +
-                    `Thank you for choosing ${dealer?.showroomName || 'us'}! 🙏`
-                );
-
-                window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
-            }
+            const printWindow = window.open('', '_blank', 'width=900,height=700');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${invoice.invoiceNumber}</title>
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { font-family: Arial, sans-serif; }
+                        @media print {
+                            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        }
+                    </style>
+                </head>
+                <body>${el.innerHTML}</body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
         } catch (err) {
-            console.error(err);
+            console.error('Print error:', err);
         } finally {
-            setSendingWA(false);
+            setPrinting(false);
         }
     };
 
@@ -131,12 +138,12 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                             {downloadDone ? 'Downloaded!' : 'Download PDF'}
                         </motion.button>
 
-                        {/* WhatsApp */}
+                        {/* Print */}
                         <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                            onClick={handleWhatsApp} disabled={sendingWA || !dealer}
-                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#25D366] text-white text-sm font-semibold rounded-xl shadow-lg shadow-[#25D366]/20 disabled:opacity-60 transition-all">
-                            {sendingWA ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
-                            Send to WhatsApp
+                            onClick={handlePrint} disabled={printing || !dealer}
+                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-500/20 disabled:opacity-60 transition-all">
+                            {printing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                            Print Invoice
                         </motion.button>
                     </div>
                     <button onClick={onClose} className="p-2 bg-white/5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all">
@@ -151,7 +158,11 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                             <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
                         </div>
                     ) : (
-                        <InvoiceTemplate ref={templateRef} invoice={invoice} dealer={dealer} />
+                        <InvoiceTemplate
+                            ref={templateRef}
+                            invoice={invoice}
+                            dealer={dealer}
+                        />
                     )}
                 </div>
             </motion.div>

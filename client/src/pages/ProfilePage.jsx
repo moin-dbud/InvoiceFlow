@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Building2, MapPin, Phone, Shield, Image as ImageIcon, PenTool,
-    Save, Loader2, AlertCircle, CheckCircle2, X, Camera, ArrowLeft, RotateCcw
+    Building2, MapPin, Phone, Shield,
+    Save, Loader2, AlertCircle, CheckCircle2, Camera, Upload, X
 } from 'lucide-react';
-import SignatureCanvas from 'react-signature-canvas';
 import axios from 'axios';
 import DashboardLayout from '../components/DashboardLayout';
 
@@ -31,12 +31,12 @@ export default function ProfilePage() {
     const [newLogo, setNewLogo] = useState(null);
     const [newLogoPreview, setNewLogoPreview] = useState('');
 
-    // Signature pad state
-    const [sigMode, setSigMode] = useState('view'); // 'view' | 'draw'
-    const [hasSigned, setHasSigned] = useState(false);
+    // Signature upload state
+    const [newSignature, setNewSignature] = useState(null);
+    const [newSignaturePreview, setNewSignaturePreview] = useState('');
 
     const logoRef = useRef(null);
-    const sigPadRef = useRef(null);
+    const sigRef = useRef(null);
 
     // Fetch current user data
     useEffect(() => {
@@ -53,7 +53,7 @@ export default function ProfilePage() {
                     setDealerLogoUrl(data.user.dealerLogo || '');
                     setSignatureUrl(data.user.digitalSignature || '');
                 }
-            } catch (err) {
+            } catch {
                 setError('Failed to load profile');
             } finally {
                 setLoading(false);
@@ -75,33 +75,23 @@ export default function ProfilePage() {
         setNewLogoPreview(URL.createObjectURL(file));
     };
 
-    const removeLogo = () => {
+    const _removeLogo = () => {
         setNewLogo(null);
         setNewLogoPreview('');
         if (logoRef.current) logoRef.current.value = '';
     };
 
-    const clearSignature = () => {
-        sigPadRef.current?.clear();
-        setHasSigned(false);
+    const handleSignatureSelect = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setNewSignature(file);
+        setNewSignaturePreview(URL.createObjectURL(file));
     };
 
-    const onSignEnd = () => {
-        if (sigPadRef.current && !sigPadRef.current.isEmpty()) setHasSigned(true);
-    };
-
-    const getSignatureFile = () => {
-        return new Promise((resolve) => {
-            if (!sigPadRef.current || sigPadRef.current.isEmpty()) { resolve(null); return; }
-            const dataURL = sigPadRef.current.toDataURL('image/png');
-            fetch(dataURL)
-                .then(res => res.blob())
-                .then(blob => {
-                    const file = new File([blob], 'signature.png', { type: 'image/png' });
-                    resolve(file);
-                })
-                .catch(() => resolve(null));
-        });
+    const removeSignature = () => {
+        setNewSignature(null);
+        setNewSignaturePreview('');
+        if (sigRef.current) sigRef.current.value = '';
     };
 
     const handleSubmit = async (e) => {
@@ -116,12 +106,7 @@ export default function ProfilePage() {
             fd.append('address', form.address);
             fd.append('contactNumber', form.contactNumber);
             if (newLogo) fd.append('dealerLogo', newLogo);
-
-            // If user drew a new signature
-            if (sigMode === 'draw' && hasSigned) {
-                const sigFile = await getSignatureFile();
-                if (sigFile) fd.append('digitalSignature', sigFile);
-            }
+            if (newSignature) fd.append('digitalSignature', newSignature);
 
             const { data } = await axios.put(`${API}/auth/profile`, fd, {
                 headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'multipart/form-data' },
@@ -144,8 +129,8 @@ export default function ProfilePage() {
                 if (data.user.digitalSignature) setSignatureUrl(data.user.digitalSignature);
                 setNewLogo(null);
                 setNewLogoPreview('');
-                setSigMode('view');
-                setHasSigned(false);
+                setNewSignature(null);
+                setNewSignaturePreview('');
 
                 setTimeout(() => setSuccess(''), 4000);
             }
@@ -247,74 +232,46 @@ export default function ProfilePage() {
                                     </div>
                                 </div>
 
-                                {/* Digital Signature */}
+                                {/* Digital Signature — Image Upload */}
                                 <div>
                                     <div className="flex items-center justify-between mb-2">
                                         <label className="text-xs font-medium text-gray-400 flex items-center gap-1.5">
-                                            <PenTool className="w-3 h-3" /> Digital Signature
+                                            <Upload className="w-3 h-3" /> Digital Signature
                                         </label>
-                                        {sigMode === 'view' ? (
-                                            <button type="button" onClick={() => setSigMode('draw')}
-                                                className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors font-medium">
-                                                <PenTool className="w-3 h-3" /> {signatureUrl ? 'Re-draw' : 'Draw'}
+                                        {(newSignaturePreview || signatureUrl) && (
+                                            <button type="button" onClick={removeSignature}
+                                                className="text-[10px] text-gray-500 hover:text-red-400 flex items-center gap-1 transition-colors">
+                                                <X className="w-3 h-3" /> Remove new
                                             </button>
-                                        ) : (
-                                            <div className="flex items-center gap-2">
-                                                {hasSigned && (
-                                                    <button type="button" onClick={clearSignature}
-                                                        className="text-[10px] text-gray-500 hover:text-red-400 flex items-center gap-1 transition-colors">
-                                                        <RotateCcw className="w-3 h-3" /> Clear
-                                                    </button>
-                                                )}
-                                                <button type="button" onClick={() => { setSigMode('view'); setHasSigned(false); }}
-                                                    className="text-[10px] text-gray-500 hover:text-white flex items-center gap-1 transition-colors">
-                                                    <X className="w-3 h-3" /> Cancel
-                                                </button>
-                                            </div>
                                         )}
                                     </div>
 
-                                    {sigMode === 'view' ? (
-                                        // Show existing signature or empty state
-                                        signatureUrl ? (
-                                            <div className="rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] h-32">
-                                                <img src={signatureUrl} alt="Digital Signature" className="w-full h-full object-contain p-3" />
+                                    {/* Preview area */}
+                                    {newSignaturePreview ? (
+                                        <div className="rounded-xl overflow-hidden border border-emerald-500/30 bg-white/[0.06] h-32 relative">
+                                            <img src={newSignaturePreview} alt="New Signature" className="w-full h-full object-contain p-3" />
+                                            <div className="absolute top-2 left-2 px-2 py-0.5 bg-emerald-600/80 rounded-md">
+                                                <span className="text-[10px] text-white font-medium">NEW — will be saved</span>
                                             </div>
-                                        ) : (
-                                            <div className="w-full h-32 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center gap-2 text-gray-600">
-                                                <PenTool className="w-6 h-6" />
-                                                <span className="text-xs">No signature yet — click "Draw" above</span>
-                                            </div>
-                                        )
+                                        </div>
+                                    ) : signatureUrl ? (
+                                        <div className="rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] h-32">
+                                            <img src={signatureUrl} alt="Digital Signature" className="w-full h-full object-contain p-3" />
+                                        </div>
                                     ) : (
-                                        // Draw mode — signature canvas
-                                        <div className={`relative rounded-xl overflow-hidden border-2 transition-all duration-300 h-32 ${hasSigned
-                                            ? 'border-emerald-500/30 bg-white/[0.06]'
-                                            : 'border-dashed border-white/10 bg-white/[0.03]'
-                                            }`}>
-                                            <SignatureCanvas
-                                                ref={sigPadRef}
-                                                penColor="#1a1a2e"
-                                                backgroundColor="rgba(255,255,255,0.95)"
-                                                canvasProps={{
-                                                    className: 'w-full h-full',
-                                                    style: { width: '100%', height: '100%' },
-                                                }}
-                                                onEnd={onSignEnd}
-                                            />
-                                            {!hasSigned && (
-                                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                                    <PenTool className="w-5 h-5 text-gray-600 mb-1" />
-                                                    <span className="text-[10px] text-gray-600">Draw your signature here</span>
-                                                </div>
-                                            )}
-                                            {hasSigned && (
-                                                <div className="absolute top-2 left-2 px-2 py-0.5 bg-emerald-600/80 rounded-md">
-                                                    <span className="text-[10px] text-white font-medium">NEW SIGNATURE</span>
-                                                </div>
-                                            )}
+                                        <div className="w-full h-32 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center gap-2 text-gray-600">
+                                            <Upload className="w-6 h-6" />
+                                            <span className="text-xs">No signature yet — upload one below</span>
                                         </div>
                                     )}
+
+                                    {/* Upload button */}
+                                    <input ref={sigRef} type="file" accept="image/*" onChange={handleSignatureSelect} className="hidden" />
+                                    <button type="button" onClick={() => sigRef.current?.click()}
+                                        className="mt-2 w-full py-2 border border-dashed border-white/10 rounded-xl text-xs text-gray-500 hover:text-indigo-400 hover:border-indigo-500/30 transition-all flex items-center justify-center gap-2">
+                                        <Upload className="w-3.5 h-3.5" />
+                                        {signatureUrl ? 'Upload a new signature image' : 'Upload signature image (PNG/JPG)'}
+                                    </button>
                                 </div>
                             </div>
 
