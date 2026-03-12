@@ -9,7 +9,7 @@ import DashboardLayout from '../components/DashboardLayout';
 import GenerateInvoiceModal from '../components/GenerateInvoiceModal';
 import InvoicePreviewModal from '../components/InvoicePreviewModal';
 
-const API = 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const getToken = () => localStorage.getItem('token');
 const authHeader = () => ({ headers: { Authorization: `Bearer ${getToken()}` } });
 
