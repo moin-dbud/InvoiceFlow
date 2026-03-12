@@ -7,8 +7,23 @@ dotenv.config();
 
 const app = express();
 
+// Allowed origins: local dev + production Vercel client
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    process.env.CLIENT_URL, // e.g. https://invoice-client.vercel.app
+].filter(Boolean);
+
 // Middleware
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (curl, Postman, server-to-server)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        callback(new Error(`CORS blocked: ${origin}`));
+    },
+    credentials: true,
+}));
 app.use(express.json());
 
 // Routes
@@ -35,18 +50,32 @@ app.use((err, req, res, next) => {
     res.status(500).json({ success: false, message: err.message || 'Server error' });
 });
 
-// Connect to MongoDB and start server
-const PORT = process.env.PORT || 5000;
+// Connect to MongoDB
+const connectDB = async () => {
+    if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(process.env.MONGO_URI);
+        console.log('✅ MongoDB connected');
+    }
+};
 
-mongoose
-    .connect(process.env.MONGO_URI)
-    .then(() => {
-        console.log('✅ MongoDB connected successfully');
-        app.listen(PORT, () => {
-            console.log(`🚀 Server running on port ${PORT}`);
+// For local development: start the server normally
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 5000;
+    connectDB()
+        .then(() => {
+            app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+        })
+        .catch((err) => {
+            console.error('❌ MongoDB connection error:', err.message);
+            process.exit(1);
         });
-    })
-    .catch((err) => {
-        console.error('❌ MongoDB connection error:', err.message);
-        process.exit(1);
-    });
+}
+
+// For Vercel serverless: connect on each cold start then export
+const handler = async (req, res) => {
+    await connectDB();
+    return app(req, res);
+};
+
+module.exports = handler;
+
