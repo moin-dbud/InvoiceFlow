@@ -52,7 +52,7 @@ const InvoiceTemplate = forwardRef(({ invoice, dealer }, ref) => {
                 {/* RIGHT: Static DeepEscooty logo — always shown, never URL-based */}
                 <div style={{ width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <img
-                        src="/assets/7057686.jpg"
+                        src="/assets/logo.jpeg"
                         alt="Deep E-Scooty And Toys"
                         style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '8px' }}
                         crossOrigin="anonymous"
@@ -63,7 +63,7 @@ const InvoiceTemplate = forwardRef(({ invoice, dealer }, ref) => {
             {/* ===== SHOP TITLE + TAX INVOICE HEADING ===== */}
             <div style={{ textAlign: 'center', margin: '15px 0 20px', borderBottom: '2px solid #1a1a1a', paddingBottom: '15px' }}>
                 <h1 style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '2px', margin: 0, color: '#1a1a1a' }}>
-                    DEEP E-SCOOTY AND TOYS
+                    DEEP Confessionary
                 </h1>
                 <p style={{ fontSize: '14px', fontWeight: '700', letterSpacing: '1px', margin: '0 0 4px', color: '#333', textTransform: 'uppercase' }}>
                     TAX INVOICE
