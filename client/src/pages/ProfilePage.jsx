@@ -7,12 +7,14 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import DashboardLayout from '../components/DashboardLayout';
+import { useCompanySettings } from '../context/CompanySettingsContext';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const getToken = () => localStorage.getItem('token');
 const authHeader = () => ({ headers: { Authorization: `Bearer ${getToken()}` } });
 
 export default function ProfilePage() {
+    const { updateSettings } = useCompanySettings();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -115,15 +117,15 @@ export default function ProfilePage() {
             if (data.success) {
                 setSuccess('Profile updated successfully!');
 
-                const updatedUser = {
-                    id: data.user.id,
-                    showroomName: data.user.showroomName,
-                    gstin: data.user.gstin,
-                    contactNumber: data.user.contactNumber,
-                    dealerLogo: data.user.dealerLogo,
-                };
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-                window.dispatchEvent(new Event('userUpdated'));
+                // Update global context — instantly syncs Navbar, InvoiceTemplate, etc.
+                updateSettings({
+                    companyName:  data.user.showroomName  || '',
+                    logoUrl:      data.user.dealerLogo    || '',
+                    signatureUrl: data.user.digitalSignature || '',
+                    address:      data.user.address       || '',
+                    contactNumber: data.user.contactNumber || '',
+                    gstin:        data.user.gstin         || '',
+                });
 
                 if (data.user.dealerLogo) setDealerLogoUrl(data.user.dealerLogo);
                 if (data.user.digitalSignature) setSignatureUrl(data.user.digitalSignature);

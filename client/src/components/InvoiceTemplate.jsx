@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
+import { useCompanySettings } from '../context/CompanySettingsContext';
 
-// Number to words (Indian system)
+// ─── Number-to-words (Indian system) ─────────────────────────────────────────
 function numberToWords(num) {
     if (num === 0) return 'Zero';
     const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
@@ -23,7 +24,22 @@ function numberToWords(num) {
 
 const fmt = (n) => Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const InvoiceTemplate = forwardRef(({ invoice, dealer }, ref) => {
+// ─── Component ────────────────────────────────────────────────────────────────
+
+/**
+ * InvoiceTemplate
+ *
+ * Props:
+ *   invoice  – invoice data object
+ *   dealer   – dealer/user data (address, GSTIN, etc.)
+ *   pdfImages – optional { logoBase64, signatureBase64 } for PDF rendering.
+ *               When provided, these Base64 data URIs are used instead of the
+ *               remote URLs so html2canvas never needs to fetch cross-origin images.
+ */
+const InvoiceTemplate = forwardRef(({ invoice, dealer, pdfImages }, ref) => {
+    // Pull live settings from global context (for browser preview)
+    const { settings } = useCompanySettings();
+
     const date = new Date(invoice.createdAt).toLocaleDateString('en-IN', {
         year: 'numeric', month: '2-digit', day: '2-digit'
     });
@@ -32,6 +48,19 @@ const InvoiceTemplate = forwardRef(({ invoice, dealer }, ref) => {
         cash: 'Cash', card: 'Card', upi: 'Online Transfer/UPI',
         finance: 'Finance', cheque: 'Cheque',
     };
+
+    // ── Image sources ───────────────────────────────────────────────────────
+    // For live preview → use CDN URL from global settings (falls back to dealer prop).
+    // For PDF → caller pre-converts URLs to Base64 and passes them as pdfImages.
+    const companyName = settings.companyName || dealer?.showroomName || 'Your Company';
+
+    const dealerLogoSrc = pdfImages?.logoBase64 || settings.logoUrl || dealer?.dealerLogo || null;
+    const signatureSrc  = pdfImages?.signatureBase64 || settings.signatureUrl || dealer?.digitalSignature || null;
+
+    // Bhoomi (left) logo – static local asset, always same-origin → no CORS issue
+    const bhoomiLogoSrc = pdfImages?.bhoomiLogoBase64 || '/assets/bhoomi-logo.png';
+    // Right header logo – static local asset (Deep E-Scooty / company brand)
+    const rightLogoSrc  = pdfImages?.rightLogoBase64  || '/assets/logo.jpeg';
 
     return (
         <div ref={ref} style={{
@@ -45,25 +74,36 @@ const InvoiceTemplate = forwardRef(({ invoice, dealer }, ref) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                 {/* LEFT: Bhoomi Logo */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img src="/assets/bhoomi-logo.png" alt="Bhoomi"
-                        style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
+                    <img
+                        src="/assets/bhoomi-logo.png"
+                        alt="Bhoomi"
+                        style={{ width: '80px', height: '80px', objectFit: 'contain' }}
+                    />
                 </div>
 
-                {/* RIGHT: Static DeepEscooty logo — always shown, never URL-based */}
+                {/* RIGHT: Company logo (dynamic from settings/R2) */}
                 <div style={{ width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img
-                        src="/assets/logo.jpeg"
-                        alt="Deep E-Scooty And Toys"
-                        style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '8px' }}
-                        crossOrigin="anonymous"
-                    />
+                    {dealerLogoSrc ? (
+                        <img
+                            src={dealerLogoSrc}
+                            alt={companyName}
+                            style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '8px' }}
+                        />
+                    ) : (
+                        /* Fallback: right static brand logo when no dealer logo set */
+                        <img
+                            src={rightLogoSrc}
+                            alt="Brand Logo"
+                            style={{ width: '90px', height: '90px', objectFit: 'contain', borderRadius: '8px' }}
+                        />
+                    )}
                 </div>
             </div>
 
             {/* ===== SHOP TITLE + TAX INVOICE HEADING ===== */}
             <div style={{ textAlign: 'center', margin: '15px 0 20px', borderBottom: '2px solid #1a1a1a', paddingBottom: '15px' }}>
                 <h1 style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '2px', margin: 0, color: '#1a1a1a' }}>
-                    DEEP Confessionary
+                    {companyName}
                 </h1>
                 <p style={{ fontSize: '14px', fontWeight: '700', letterSpacing: '1px', margin: '0 0 4px', color: '#333', textTransform: 'uppercase' }}>
                     TAX INVOICE
@@ -75,16 +115,16 @@ const InvoiceTemplate = forwardRef(({ invoice, dealer }, ref) => {
                 {/* Dealer Details */}
                 <div style={{ flex: 1, maxWidth: '55%' }}>
                     <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '6px', color: '#1a1a1a' }}>Dealer Details:</h3>
-                    <p style={{ fontSize: '15px', fontWeight: '700', margin: '2px 0' }}>{dealer?.showroomName || 'Dealer Showroom'}</p>
+                    <p style={{ fontSize: '15px', fontWeight: '700', margin: '2px 0' }}>{dealer?.showroomName || companyName}</p>
                     <p style={{ margin: '2px 0', color: '#555', fontSize: '12px' }}>Authorised Dealer: Bhoomi Motors</p>
                     <p style={{ margin: '2px 0', color: '#444' }}>
-                        <strong>Address:</strong> {dealer?.address || 'N/A'}
+                        <strong>Address:</strong> {settings.address || dealer?.address || 'N/A'}
                     </p>
                     <p style={{ margin: '2px 0', color: '#444' }}>
-                        <strong>Mobile:</strong> +91 {dealer?.contactNumber || 'N/A'}
+                        <strong>Mobile:</strong> +91 {settings.contactNumber || dealer?.contactNumber || 'N/A'}
                     </p>
                     <p style={{ margin: '2px 0', color: '#444' }}>
-                        <strong>GSTIN:</strong> {dealer?.gstin || 'N/A'}
+                        <strong>GSTIN:</strong> {settings.gstin || dealer?.gstin || 'N/A'}
                     </p>
                 </div>
 
@@ -218,8 +258,11 @@ const InvoiceTemplate = forwardRef(({ invoice, dealer }, ref) => {
             }}>
                 {/* Left: Bhoomi branding */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <img src="/assets/bhoomi-logo.png" alt="Bhoomi"
-                        style={{ width: '50px', height: '50px', objectFit: 'contain' }} />
+                    <img
+                        src={bhoomiLogoSrc}
+                        alt="Bhoomi"
+                        style={{ width: '50px', height: '50px', objectFit: 'contain' }}
+                    />
                     <div>
                         <p style={{ fontWeight: '700', fontSize: '13px', margin: 0, color: '#3d3530' }}>
                             <span style={{ color: '#3d3530' }}>Bhoomi Motors:</span>{' '}
@@ -229,14 +272,25 @@ const InvoiceTemplate = forwardRef(({ invoice, dealer }, ref) => {
                     </div>
                 </div>
 
-                {/* Right: Permanent static signature image */}
+                {/* Right: Digital signature (from global settings / R2) */}
                 <div style={{ textAlign: 'center' }}>
-                    <img
-                        src="/assets/signature.png"
-                        alt="Authorised Signature"
-                        crossOrigin="anonymous"
-                        style={{ width: '200px', height: '100px', objectFit: 'contain', marginBottom: '6px', display: 'block' }}
-                    />
+                    {signatureSrc ? (
+                        <img
+                            src={signatureSrc}
+                            alt="Authorised Signature"
+                            style={{ width: '200px', height: '100px', objectFit: 'contain', marginBottom: '6px', display: 'block' }}
+                        />
+                    ) : (
+                        /* Fallback blank signature area */
+                        <div style={{
+                            width: '200px', height: '100px', marginBottom: '6px',
+                            borderBottom: '1px dashed #ccc', display: 'flex',
+                            alignItems: 'flex-end', justifyContent: 'center',
+                            paddingBottom: '4px',
+                        }}>
+                            <span style={{ fontSize: '10px', color: '#bbb' }}>(signature)</span>
+                        </div>
+                    )}
                     <p style={{ fontSize: '12px', fontWeight: '600', color: '#444', margin: 0 }}>Authorised Signatory</p>
                 </div>
             </div>
