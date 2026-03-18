@@ -1,29 +1,43 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
 const app = express();
 
-// Allowed origins: local dev + production Vercel client
-const allowedOrigins = [
+// ─── CORS — manual header injection (most reliable for Vercel serverless) ──────
+// We inject headers on EVERY response so preflight OPTIONS never fails.
+const ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:5174',
-    process.env.CLIENT_URL, // e.g. https://invoice-client.vercel.app
+    'https://invoice-flow-orcin.vercel.app', // your deployed client
+    process.env.CLIENT_URL,                   // fallback from env
 ].filter(Boolean);
 
-// Middleware
-app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (curl, Postman, server-to-server)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        callback(new Error(`CORS blocked: ${origin}`));
-    },
-    credentials: true,
-}));
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    // If the request origin is in the allowed list, reflect it back
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else if (!origin) {
+        // No origin = curl / Postman / server-to-server: allow it
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+    );
+
+    // Respond immediately to OPTIONS preflight — don't pass to routes
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
+
 app.use(express.json());
 
 // Routes
@@ -50,7 +64,7 @@ app.use((err, req, res, next) => {
     res.status(500).json({ success: false, message: err.message || 'Server error' });
 });
 
-// Connect to MongoDB
+// Connect to MongoDB (lazy — reuses connection across warm invocations)
 const connectDB = async () => {
     if (mongoose.connection.readyState === 0) {
         await mongoose.connect(process.env.MONGO_URI);
@@ -58,7 +72,7 @@ const connectDB = async () => {
     }
 };
 
-// For local development: start the server normally
+// ─── Local dev: start normally ───────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'production') {
     const PORT = process.env.PORT || 5000;
     connectDB()
@@ -71,11 +85,12 @@ if (process.env.NODE_ENV !== 'production') {
         });
 }
 
-// For Vercel serverless: connect on each cold start then export
+// ─── Vercel serverless export ────────────────────────────────────────────────
 const handler = async (req, res) => {
     await connectDB();
     return app(req, res);
 };
 
 module.exports = handler;
+
 
