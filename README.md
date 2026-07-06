@@ -9,9 +9,7 @@
 <p align="center">
   <a href="#-features">Features</a> •
   <a href="#%EF%B8%8F-tech-stack">Tech Stack</a> •
-  <a href="#-architecture">Architecture</a> •
-  <a href="#-getting-started">Getting Started</a> •
-  <a href="#-api-reference">API Reference</a> 
+  <a href="#-architecture">Architecture</a> 
 </p>
 
 ---
